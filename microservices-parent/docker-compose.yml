@@ -1,6 +1,6 @@
 # ----------------------------------
 # Command to run this compose file:
-# 1. docker-compose -p microservices-comp3095 -f docker-compose.yml up -d
+# 1. docker-compose -p comp3095-integrated -f docker-compose.yml up -d
 # -- This command will start all the containers in detached mode (-d)
 #    without rebuilding the images if they already exist.
 #
@@ -26,7 +26,7 @@ services:
       - spring
 
   mongodb:
-    image: mongo:latest
+    image: mongo:6.0
     ports:
       - "28017:27017"
     container_name: mongodb
@@ -40,7 +40,7 @@ services:
       - spring
 
   mongo-express:
-    image: mongo:latest
+    image: mongo:6.0
     ports:
       - "8081:8081"
     container_name: mongo-express
