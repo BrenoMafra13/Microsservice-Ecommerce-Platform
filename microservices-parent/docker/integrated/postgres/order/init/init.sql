@@ -1,0 +1,3 @@
+CREATE DATABASE order_service;
+CREATE USER admin WITH PASSWORD 'password';
+GRANT ALL PRIVILEGES ON DATABASE order_service TRO admin;
