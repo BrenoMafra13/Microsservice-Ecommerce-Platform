@@ -48,7 +48,7 @@ All services are containerized using **Docker Compose**, allowing modular deploy
 
 1. **Clone the repository:**
    ```bash
-   git clone https://gitlab.com/YOUR_USERNAME/microservices-structure.git
+   git clone https://gitlab.com/BrenoMafra13/microservices-structure.git
    cd microservices-structure
    ```
 
