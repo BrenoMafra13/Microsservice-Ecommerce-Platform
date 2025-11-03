@@ -10,6 +10,25 @@
 # ----------------------------------
 services:
 
+  inventory-service:
+    image: inventory-service
+    ports:
+      - "8083:8083"
+    build:
+      context: ./inventory-service
+      dockerfile: ./Dockerfile
+    container_name: inventory-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-inventory/inventory-service
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=none
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - postgres-inventory
+    networks:
+      - spring
+
   order-service:
     image: order-service
     ports:
@@ -44,6 +63,22 @@ services:
     networks:
       - spring
 
+  postgres-inventory:
+    container_name: postgres-inventory
+    image: postgres
+    environment:
+      POSTGRES_DB: inventory-service
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      PGDATA: /data/postgres
+    volumes:
+      - ./docker/integrated/postgres/data/inventory:/data/postgres
+      - ./docker/integrated/postgres/service/init/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    networks:
+      - spring
+
   postgres-order:
     container_name: postgres-order
     image: postgres
@@ -56,7 +91,7 @@ services:
       - ./docker/integrated/postgres/order/data:/data/postgres
       - ./docker/integrated/postgres/order/init/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432:5432"
+      - "5434:5432"
     networks:
       - spring
 

@@ -1,7 +1,7 @@
 # ------
 # Build Stage
 # ------
-FROM gradle:8-jdk21 AS builder
+FROM gradle:8-jdk17 AS builder
 
 COPY --chown=gradle:gradle . /home/gradle/src
 
@@ -12,7 +12,7 @@ RUN ./gradlew build -x test
 # ------
 # Package Stage
 # ------
-FROM openjdk:21-jdk
+FROM openjdk:17-jdk
 
 RUN mkdir /app
 
