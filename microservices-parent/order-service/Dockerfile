@@ -1,7 +1,7 @@
 # ------
 # Build Stage
 # ------
-FROM gradle:8-jdk17 AS builder
+FROM gradle:8.10.2-jdk17 AS builder
 
 COPY --chown=gradle:gradle . /home/gradle/src
 
@@ -12,7 +12,7 @@ RUN ./gradlew build -x test
 # ------
 # Package Stage
 # ------
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:21-jre
 
 RUN mkdir /app
 
