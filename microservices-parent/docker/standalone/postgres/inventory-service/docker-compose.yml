@@ -1,0 +1,22 @@
+services:
+
+  postgres-local-inventory:
+    image: postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./data:/var/lib/postgresql/data
+      - ./init/init.sql:/docker-entrypoint-initdb.d/init.sql
+    container_name: postgres-local-inventory
+
+  pgpadmin-local-inventory:
+    image: dpage/pgadmin4:9.2
+    ports:
+      - "8888:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=user@domain.ca
+      - PGADMIN_DEFAULT_PASSWORD=password
+    container_name: pgpadmin-local-inventory

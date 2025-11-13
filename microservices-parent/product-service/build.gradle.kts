@@ -25,22 +25,35 @@ repositories {
 }
 
 dependencies {
+    // --- Spring Boot ---
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
     implementation("org.springframework.boot:spring-boot-starter-web")
-    compileOnly("org.projectlombok:lombok")
+
+    // Data stores
+    implementation("org.springframework.boot:spring-boot-starter-data-mongodb")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
+    // Dev & Lombok
     developmentOnly("org.springframework.boot:spring-boot-devtools")
+    compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+
+    // --- Testing ---
+    // Manage all org.testcontainers versions with BOM
+    testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.3"))
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:mongodb")
+
+    // Redis Testcontainers is a community module (different group + explicit version)
+    testImplementation("com.redis:testcontainers-redis:2.2.4")
+
+    // Spring Boot testing helpers
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // API testing
     testImplementation("io.rest-assured:rest-assured")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    testImplementation("org.testcontainers:redis")
-
 }
 
 tasks.withType<Test> {

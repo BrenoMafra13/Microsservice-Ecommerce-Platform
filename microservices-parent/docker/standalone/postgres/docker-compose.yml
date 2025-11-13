@@ -1,0 +1,36 @@
+#  docker-compose -p postgres-local -f docker-compose.yml up -d
+
+services:
+
+  postgres-local-inventory:
+    image: postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./inventory-service/data:/var/lib/postgresql/data
+      - ./inventory-service/init/init.sql:/docker-entrypoint-initdb.d/init.sql
+    container_name: postgres-local-inventory
+
+  postgres-local-order:
+    image: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./order-service/data:/var/lib/postgresql/data
+      - ./order-service/init/init.sql:/docker-entrypoint-initdb.d/init.sql
+    container_name: postgres-local-order
+
+  pgpadmin-local:
+    image: dpage/pgadmin4:9.2
+    ports:
+      - "8888:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=user@domain.ca
+      - PGADMIN_DEFAULT_PASSWORD=password
+    container_name: pgpadmin-local

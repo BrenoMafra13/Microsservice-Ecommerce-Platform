@@ -10,6 +10,28 @@
 # ----------------------------------
 services:
 
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker/integrated/redis/data:/data
+      - ./docker/integrated/redis/init/redis.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+    container_name: redis
+    networks:
+      - spring
+
+  redis-insight:
+    image: redislabs/redisinsight:1.14.0
+    ports:
+      - "8001:8001"
+    container_name: redis-insight
+    depends_on:
+      - redis
+    networks:
+      - spring
+
   inventory-service:
     image: inventory-service
     ports:
@@ -121,7 +143,7 @@ services:
       - spring
 
   mongo-express:
-    image: mongo:6.0
+    image: mongo-express
     ports:
       - "8081:8081"
     container_name: mongo-express

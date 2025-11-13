@@ -5,68 +5,79 @@ import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.http.HttpStatus;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
-import static org.hamcrest.Matchers.hasItem;
-import static org.springframework.data.mongodb.core.mapping.FieldName.path;
+import java.time.Duration;
+
+import ca.gbc.comp3095.productservice.repository.ProductRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Testcontainers
 class ProductServiceApplicationTests {
 
-	@ServiceConnection
-	static MongoDBContainer mongoDBContainer = new MongoDBContainer("mongo:6.0");
+	@Container
+	@ServiceConnection(name = "mongodb")
+	static MongoDBContainer mongo =
+			new MongoDBContainer(DockerImageName.parse("mongo:6.0"))
+					.withStartupTimeout(Duration.ofSeconds(120));
+
+	@Container
+	@ServiceConnection(name = "redis")
+	static GenericContainer<?> redis =
+			new GenericContainer<>(DockerImageName.parse("redis:7.4.3"))
+					.withExposedPorts(6379)
+					.waitingFor(Wait.forListeningPort())
+					.withStartupTimeout(Duration.ofSeconds(120));
 
 	@LocalServerPort
 	private Integer port;
 
+	@Autowired private ProductRepository productRepository;
+	@Autowired private RedisConnectionFactory redisConnectionFactory;
+	@Autowired private CacheManager cacheManager;
+
+	private Cache productCache() {
+		Cache c = cacheManager.getCache("PRODUCT_CACHE");
+		if (c == null) throw new IllegalStateException("PRODUCT_CACHE must be configured");
+		return c;
+	}
+
 	@BeforeEach
-	void setUp(){
+	void setUp() {
 		RestAssured.baseURI = "http://localhost";
 		RestAssured.port = port;
-	}
 
-	static {
-		mongoDBContainer.start();
-	}
+		productRepository.deleteAll();
 
-	@Test
-	void createProductTest(){
-		String requestBody = """
-				{
-				"name": "Samsung TV",
-				"description": "Samsung TV Model 2025",
-				"price": 2000
-				}
-				""";
+		try (var conn = redisConnectionFactory.getConnection()) {
+			conn.serverCommands().flushDb();
+		}
 
-		// BDD - given() - when() - then()
-		RestAssured.given()
-				.contentType(ContentType.JSON)
-				.body(requestBody)
-				.when()
-				.post("/api/product")
-				.then()
-				.log().all()
-				.statusCode(HttpStatus.CREATED.value())
-				.body("id", Matchers.notNullValue())
-				.body("name", Matchers.equalTo("Samsung TV"))
-				.body("description", Matchers.equalTo("Samsung TV Model 2025"))
-				.body("price", Matchers.equalTo(2000));
+		productCache().clear();
 	}
 
 	@Test
-	void getAllProductsTest(){
+	void createProductTest() {
 		String requestBody = """
-				{
-				"name": "Samsung TV",
-				"description": "Samsung TV Model 2025",
-				"price": 2000
-				}
-				""";
+                {
+                   "name": "Samsung TV",
+                   "description": "Samsung TV - Model 2025",
+                   "price": 2500
+                }
+                """;
 
 		RestAssured.given()
 				.contentType(ContentType.JSON)
@@ -78,10 +89,14 @@ class ProductServiceApplicationTests {
 				.statusCode(HttpStatus.CREATED.value())
 				.body("id", Matchers.notNullValue())
 				.body("name", Matchers.equalTo("Samsung TV"))
-				.body("description", Matchers.equalTo("Samsung TV Model 2025"))
-				.body("price", Matchers.equalTo(2000));
+				.body("description", Matchers.equalTo("Samsung TV - Model 2025"))
+				.body("price", Matchers.equalTo(2500));
+	}
 
-		// BDD - given() - when() - then()
+	@Test
+	void getAllProductsTest() {
+		String id = createProductAndReturnId("Samsung TV", "Samsung TV - Model 2025", 2500);
+
 		RestAssured.given()
 				.contentType(ContentType.JSON)
 				.when()
@@ -89,72 +104,71 @@ class ProductServiceApplicationTests {
 				.then()
 				.log().all()
 				.statusCode(HttpStatus.OK.value())
-				.body("size()", Matchers.greaterThan(0))
-				.body("[0].name", Matchers.equalTo("Samsung TV"))
-				.body("[0].description", Matchers.equalTo("Samsung TV Model 2025"))
-				.body("[0].price", Matchers.equalTo(2000));
+				.body("size()", Matchers.greaterThanOrEqualTo(1))
+				.body("id", Matchers.hasItem(id))
+				.body("find { it.id == '%s'}.name".formatted(id), Matchers.equalTo("Samsung TV"))
+				.body("find { it.id == '%s'}.description".formatted(id), Matchers.equalTo("Samsung TV - Model 2025"))
+				.body("find { it.id == '%s'}.price".formatted(id), Matchers.equalTo(2500));
 	}
 
-	private String createProductAndReturnId(String name, String description, int price){
+	private String createProductAndReturnId(String name, String description, int price) {
 		String requestBody = """
-				{
-				"name": "Samsung TV",
-				"description": "Samsung TV Model 2025",
-				"price": 2000
-				}
-				""";
+                {
+                   "name": "%s",
+                   "description": "%s",
+                   "price": %d
+                }
+                """.formatted(name, description, price);
 
-		// BDD - given() - when() - then()
 		return RestAssured.given()
 				.contentType(ContentType.JSON)
 				.body(requestBody)
 				.when()
 				.post("/api/product")
 				.then()
-				.log().all()
 				.statusCode(HttpStatus.CREATED.value())
-				.extract().path("id");
+				.extract()
+				.path("id");
 	}
 
 	@Test
-	void updateProductTest(){
+	void updateProductTest() {
 		String id = createProductAndReturnId("LG Monitor", "LG 27-inch 4K", 800);
 
-		String updatedBody = """
-				{
-				"name": "LG Monitor",
-				"description": "LG 27-inch 4K",
-				"price": 1000
-				}
-				""";
+		String updateBody = """
+                {
+                   "name": "LG Monitor",
+                   "description": "LG 27-inch 4K",
+                   "price": 1000
+                }
+                """;
+
 		RestAssured.given()
 				.contentType(ContentType.JSON)
-				.body(updatedBody)
+				.body(updateBody)
 				.when()
 				.put("/api/product/{id}", id)
 				.then()
-				.log().all()
 				.statusCode(HttpStatus.NO_CONTENT.value())
 				.header("Location", "/api/product/" + id);
 
 		RestAssured.given()
-				.contentType(ContentType.JSON)
 				.when()
 				.get("/api/product")
 				.then()
+				.log().all()
 				.statusCode(HttpStatus.OK.value())
-				.body("find {it.id == '%s'}.name".formatted(id), Matchers.equalTo("LG Monitor"))
-				.body("find {it.id == '%s'}.description".formatted(id), Matchers.equalTo("LG 27-inch 4K"))
-				.body("find {it.id == '%s'}.price".formatted(id), Matchers.equalTo(1000));
+				.body("id", Matchers.hasItem(id))
+				.body("find { it.id == '%s'}.name".formatted(id), Matchers.equalTo("LG Monitor"))
+				.body("find { it.id == '%s'}.description".formatted(id), Matchers.equalTo("LG 27-inch 4K"))
+				.body("find { it.id == '%s'}.price".formatted(id), Matchers.equalTo(1000));
 	}
 
 	@Test
-	void deleteProductTest(){
-
+	void deleteProductTest() {
 		String id = createProductAndReturnId("Temp Item", "Disposable", 10);
 
 		RestAssured.given()
-				.contentType(ContentType.JSON)
 				.when()
 				.get("/api/product")
 				.then()
@@ -162,18 +176,19 @@ class ProductServiceApplicationTests {
 				.body("id", Matchers.hasItem(id));
 
 		RestAssured.given()
-				.contentType(ContentType.JSON)
 				.when()
 				.delete("/api/product/{id}", id)
 				.then()
+				.log().all()
 				.statusCode(HttpStatus.NO_CONTENT.value());
 
+		productCache().clear();
+
 		RestAssured.given()
-				.contentType(ContentType.JSON)
 				.when()
 				.get("/api/product")
 				.then()
 				.statusCode(HttpStatus.OK.value())
-				.body("id", Matchers.not(Matchers.hasItem("id")));
+				.body("id", Matchers.not(Matchers.hasItem(id)));
 	}
 }

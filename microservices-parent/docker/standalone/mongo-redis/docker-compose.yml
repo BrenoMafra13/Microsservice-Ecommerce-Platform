@@ -1,0 +1,63 @@
+# Run with: docker-compose -p <mongo-standalone> -f docker-compose.yml up -d
+# Note: The mongo-init.js file only runs once, when initializing a brand-new MongoDB volume.
+#       If the database already exists, the script will NOT run again.
+# Useful reference: https://robert-askam.co.uk/posts/how-to-connect-mysql-workbench-to-running-mysql-inside-docker
+
+# docker-compose -p mongo-redis-standalone -f docker-compose.yml up -d
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "28017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - ./docker/integrated/mongo/data/mongo/products:/data/db
+      - ./docker/integrated/mongo/init/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+    container_name: mongodb
+    command: mongod --auth
+    networks:
+      - backend
+
+  mongo-express:
+    image: mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=password
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
+    container_name: mongo-express
+    depends_on:
+      - mongodb
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.4.3
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: no
+    volumes:
+      - ./init/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./redis-data:/data
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    networks:
+      - backend
+
+  redisinsight:
+    image: redislabs/redisinsight:1.14.0
+    container_name: redisinsight
+    ports:
+      - "8001:8001"
+    depends_on:
+      - redis
+    networks:
+      - backend
+
+networks:
+  backend:
