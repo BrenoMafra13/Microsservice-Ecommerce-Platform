@@ -10,6 +10,20 @@
 # ----------------------------------
 services:
 
+  api-gateway:
+    image: api-gateway
+    ports:
+      - "9000:9000"
+    build:
+      context: ./api-gateway
+      dockerfile: ./Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_APPLICATION_JSON={"logging":{"level":{"root":"INFO","ca.gbc.apigateway":"DEBUG"}}}:
+    container_name: api-gateway
+    networks:
+      - spring
+
   redis:
     image: redis:latest
     ports:
