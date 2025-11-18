@@ -32,7 +32,7 @@ function ensureCollection(dbName, collName, options = {}) {
     const exists = targetDb.getCollectionInfos({ name: collName }).length > 0;
 
     if (!exists) {
-        targetDb.createCollection(collName, option);
+        targetDb.createCollection(collName, options);
         print(`Created collection "${dbName}.${collName}"`);
     } else {
         print(`Collection "${dbName}.${collName}" already exists`);

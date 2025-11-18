@@ -8,27 +8,22 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.context.annotation.Bean;
 
 @Slf4j
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
 
         log.info("Initializing Security Filter Chain");
 
         return httpSecurity
-                .csrf(AbstractHttpConfigurer::disable)   //Disable CSRF (temporarily)
-                //Authorize all HTTP request, requiring authentication
-                .authorizeHttpRequests(
-                        authorize -> authorize.anyRequest().authenticated() )
-                // Permit  all unauthenticated requests
-                //.authorizeHttpRequests(
-                //                        authorize -> authorize.annyRequest.permittedAll() )
-                //Set up OAuth2 server tro use JWT token for authentication
-                .oauth2ResourceServer(
-                        oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .csrf(AbstractHttpConfigurer::disable) //Disable CSRF (temporarily)
+                // For now, allow everything through without auth. Re-enable JWT when auth is ready.
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                 .build();
 
     }
