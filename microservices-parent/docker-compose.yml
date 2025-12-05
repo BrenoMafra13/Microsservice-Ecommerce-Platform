@@ -1,25 +1,66 @@
-# ----------------------------------
-# Command to run this compose file:
-# 1. docker-compose -p comp3095-integrated -f docker-compose.yml up -d
-# -- This command will start all the containers in detached mode (-d)
-#    without rebuilding the images if they already exist.
+# --------------------------------------------------
+# Commands to run this compose file:
+#     - docker-compose -p comp3095-integrated -f docker-compose.yml up -d
+#     This command will start the containers in detached mode (-d) without rebuilding the images (if they already exist)
 #
-# 2. docker-compose -p microservices-comp3095 -f docker-compose.yml up -d --build
-# -- This command will start all the containers in detached mode (-d)
-#    without rebuilding the images even if they already exist.
-# ----------------------------------
+#     - docker-compose -p comp3095-integrated -f docker-compose.yml up -d --build
+#     This command force the rebuild of images, even if the images already exist
+# ------------------------------------------------
 services:
+
+  notification-service:
+    image: notification-service
+    ports:
+      - "8085:8085"
+    build:
+      context: .
+      dockerfile: ./notification-service/Dockerfile
+    container_name: notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: broker:29092
+    depends_on:
+      broker:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    networks:
+      - spring
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.1
+    ports:
+      - "8080:8080"
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=postgres-keycloak
+      - KC_DB_URL_PORT=5432
+      - KC_DB_URL_DATABASE=keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=password
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=password
+      - KC_HOSTNAME=keycloak
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+    command:
+      - start-dev
+    container_name: keycloak
+    depends_on:
+      - postgres-keycloak
+    networks:
+      - spring
 
   api-gateway:
     image: api-gateway
     ports:
       - "9000:9000"
     build:
-      context: ./api-gateway
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_APPLICATION_JSON={"logging":{"level":{"root":"INFO","ca.gbc.apigateway":"DEBUG"}}}:
+      SPRING_APPLICATION_JSON: '{"logging":{"level":{"root":"INFO","ca.gbc.comp3095.apigateway":"DEBUG","org.springframework.security":"DEBUG"}}}'
     container_name: api-gateway
     networks:
       - spring
@@ -51,18 +92,17 @@ services:
     ports:
       - "8083:8083"
     build:
-      context: ./inventory-service
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: ./inventory-service/Dockerfile
     container_name: inventory-service
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-inventory/inventory-service
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-inventory:5432/inventory_service
       - SPRING_DATASOURCE_USERNAME=admin
       - SPRING_DATASOURCE_PASSWORD=password
       - SPRING_JPA_HIBERNATE_DDL_AUTO=none
       - SPRING_PROFILES_ACTIVE=docker
     depends_on:
-      postgres-inventory:
-        condition: service_healthy
+      - postgres-inventory
     networks:
       - spring
 
@@ -71,18 +111,20 @@ services:
     ports:
       - "8082:8082"
     build:
-      context: ./order-service
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: ./order-service/Dockerfile
     container_name: order-service
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-order:5432/order-service
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-order:5432/order_service
       - SPRING_DATASOURCE_USERNAME=admin
       - SPRING_DATASOURCE_PASSWORD=password
       - SPRING_JPA_HIBERNATE_DDL_AUTO=none
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=broker:29092
     depends_on:
-      postgres-order:
-        condition: service_healthy
+      - postgres-order
+      - broker
+      - schema-registry
     networks:
       - spring
 
@@ -91,8 +133,8 @@ services:
     ports:
       - "8084:8084"
     build:
-      context: ./product-service
-      dockerfile: ./Dockerfile
+      context: .
+      dockerfile: ./product-service/Dockerfile
     container_name: product-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -101,25 +143,34 @@ services:
     networks:
       - spring
 
+  postgres-keycloak:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=password
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - ./docker/integrated/postgres/data/keycloak24:/var/lib/postgresql/data
+    ports:
+      - "5440:5432"
+    container_name: postgres-keycloak
+    networks:
+      - spring
+
   postgres-inventory:
     container_name: postgres-inventory
     image: postgres
     environment:
-      POSTGRES_DB: inventory-service
+      POSTGRES_DB: inventory_service
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
       PGDATA: /data/postgres
     volumes:
       - ./docker/integrated/postgres/data/inventory:/data/postgres
-      - ./docker/integrated/postgres/service/init/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/integrated/postgres/inventory-service/init/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     networks:
       - spring
 
@@ -127,21 +178,15 @@ services:
     container_name: postgres-order
     image: postgres
     environment:
-      POSTGRES_DB: order-service
+      POSTGRES_DB: order_service
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
       PGDATA: /data/postgres
     volumes:
       - ./docker/integrated/postgres/order/data:/data/postgres
-      - ./docker/integrated/postgres/order/init/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/integrated/postgres/order-service/init/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5434:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     networks:
       - spring
 
@@ -156,10 +201,100 @@ services:
     networks:
       - spring
 
+  zookeeper:
+    container_name: zookeeper
+    hostname: zookeeper
+    image: confluentinc/cp-zookeeper:7.9.2
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - ./docker/integrated/kafka/zookeeper_data:/var/lib/zookeeper/data
+      - ./docker/integrated/kafka/zookeeper_log:/var/lib/zookeeper/log
+    healthcheck:
+      test: [ "CMD", "zookeeper-shell", "zookeeper:2181", "ls", "/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spring
+
+  broker:
+    container_name: broker
+    image: confluentinc/cp-kafka:7.9.2
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - ./docker/integrated/kafka/kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: [ "CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - spring
+
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8086:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_NAME: local
+      KAFKA_CLUSTERS_BOOTSTRAPSERVERS: broker:29092
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spring
+
+  schema-registry:
+    container_name: schema-registry
+    hostname: schema-registry
+    image: confluentinc/cp-schema-registry:7.9.2
+    ports:
+      - "8087:8087"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://broker:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8087
+    depends_on:
+      broker:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8087" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spring
+
   mongodb:
     image: mongo:6.0
     ports:
-      - "28017:27017"
+      - "27017:27017"
     container_name: mongodb
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
@@ -167,6 +302,7 @@ services:
     volumes:
       - ./docker/integrated/mongo/data/products:/data/db
       - ./docker/integrated/mongo/init/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+    command: mongod --auth
     networks:
       - spring
 
@@ -185,10 +321,12 @@ services:
     networks:
       - spring
 
+
+# Optional volumes section for persisting data
 volumes:
   mongo-db:
-    driver: local
+    driver: local  # Use local driver from persisting data on the host machine
 
 networks:
   spring:
-    driver: bridge
+      driver: bridge   #Bridge network allows isolated communication between containers

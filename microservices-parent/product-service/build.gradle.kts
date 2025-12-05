@@ -54,6 +54,9 @@ dependencies {
     // API testing
     testImplementation("io.rest-assured:rest-assured")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.14")
 }
 
 tasks.withType<Test> {

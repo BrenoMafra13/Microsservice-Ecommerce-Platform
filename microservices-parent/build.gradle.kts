@@ -7,7 +7,7 @@ plugins {
 
 group = "ca.gbc.comp3095"
 version = "0.0.1-SNAPSHOT"
-description = "microservices-parent"
+description = "microservice-parent"
 
 subprojects{
 	apply(plugin = "java")

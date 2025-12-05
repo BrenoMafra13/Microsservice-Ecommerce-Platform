@@ -3,20 +3,19 @@
 # ------
 FROM gradle:8.10.2-jdk17 AS builder
 
-COPY --chown=gradle:gradle . /home/gradle/src
-
 WORKDIR /home/gradle/src
+COPY --chown=gradle:gradle . .
 
-RUN ./gradlew build -x test
+RUN ./gradlew :inventory-service:build -x test
 
 # ------
 # Package Stage
 # ------
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:17-jre
 
 RUN mkdir /app
 
-COPY --from=builder /home/gradle/src/build/libs/*.jar /app/inventory-service.jar
+COPY --from=builder /home/gradle/src/inventory-service/build/libs/*SNAPSHOT.jar /app/inventory-service.jar
 
 ENV POSTGRES_USER=admin \
     POSTGRES_PWD=password

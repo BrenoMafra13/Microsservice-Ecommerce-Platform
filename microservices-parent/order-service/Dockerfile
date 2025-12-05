@@ -3,20 +3,19 @@
 # ------
 FROM gradle:8.10.2-jdk17 AS builder
 
-COPY --chown=gradle:gradle . /home/gradle/src
-
 WORKDIR /home/gradle/src
+COPY --chown=gradle:gradle . .
 
-RUN ./gradlew build -x test
+RUN ./gradlew :order-service:build -x test
 
 # ------
 # Package Stage
 # ------
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:17-jre
 
 RUN mkdir /app
 
-COPY --from=builder /home/gradle/src/build/libs/*.jar /app/order-service.jar
+COPY --from=builder /home/gradle/src/order-service/build/libs/*SNAPSHOT.jar /app/order-service.jar
 
 ENV POSTGRES_USER=admin \
     POSTGRES_PWD=password

@@ -3,20 +3,19 @@
 # ------
 FROM gradle:8.10.2-jdk17 AS builder
 
-COPY --chown=gradle:gradle . /home/gradle/src
-
 WORKDIR /home/gradle/src
+COPY --chown=gradle:gradle . .
 
-RUN ./gradlew build -x test
+RUN ./gradlew :product-service:build -x test
 
 # ------
 # Package Stage
 # ------
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:17-jre
 
 RUN mkdir /app
 
-COPY --from=builder /home/gradle/src/build/libs/*.jar /app/product-service.jar
+COPY --from=builder /home/gradle/src/product-service/build/libs/*SNAPSHOT.jar /app/product-service.jar
 
 ENV MONGO_DB_USERNAME=admin \
     MONGO_DB_PWD=password

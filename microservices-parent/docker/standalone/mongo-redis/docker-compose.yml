@@ -2,25 +2,26 @@
 # Note: The mongo-init.js file only runs once, when initializing a brand-new MongoDB volume.
 #       If the database already exists, the script will NOT run again.
 # Useful reference: https://robert-askam.co.uk/posts/how-to-connect-mysql-workbench-to-running-mysql-inside-docker
-
 # docker-compose -p mongo-redis-standalone -f docker-compose.yml up -d
 
 services:
+  # MongoDB service, the database that will be used by product-service.
   mongodb:
     image: mongo:latest
     ports:
-      - "28017:27017"
+      - "27017:27017"
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
-      - ./docker/integrated/mongo/data/mongo/products:/data/db
-      - ./docker/integrated/mongo/init/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+      - ./mongo-data/products:/data/db  # The database will persist data here on the host machine.
+      - ./init/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
     container_name: mongodb
-    command: mongod --auth
+    command: mongod --auth  # Ensures MongoDB requires authentication.
     networks:
       - backend
 
+  # Mongo-Express is a web-based MongoDB admin interface to manage MongoDB visually.
   mongo-express:
     image: mongo-express
     ports:
@@ -28,7 +29,7 @@ services:
     environment:
       - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
       - ME_CONFIG_MONGODB_ADMINPASSWORD=password
-      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_SERVER=mongodb  # Connect Mongo-Express to the MongoDB container by name.
       - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
     container_name: mongo-express
     depends_on:
@@ -59,5 +60,6 @@ services:
     networks:
       - backend
 
+# Optional: define a custom bridge network for container-to-container communication
 networks:
   backend:
