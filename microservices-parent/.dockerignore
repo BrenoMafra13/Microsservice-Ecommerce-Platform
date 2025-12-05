@@ -1,0 +1,18 @@
+.git
+.gitignore
+.idea
+.DS_Store
+**/.gradle
+**/build
+
+# Exclude docker data directories
+docker/integrated/**/data
+docker/integrated/kafka/**
+docker/integrated/redis/data
+docker/integrated/postgres/**/data
+docker/integrated/mongo/data
+docker/standalone/**/redis-data
+docker/standalone/**/mongo-data
+
+# Binary outputs
+**/*.iml
