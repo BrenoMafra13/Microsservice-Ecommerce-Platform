@@ -30,15 +30,15 @@ Client → **API Gateway** (JWT + circuit breaker) →
 
 ## Relevant Screenshots
 - Docker Desktop with containers  
-  ![Containers](docs/images/conteiners.jpeg)
+  ![Containers](microservices-parent/docs/images/conteiners.jpeg)
 - Postman collection  
-  ![Postman](docs/images/postman.jpeg)
+  ![Postman](microservices-parent/docs/images/postman.jpeg)
 - Inventory Swagger  
-  ![Inventory Swagger](docs/images/inventory.jpeg)
+  ![Inventory Swagger](microservices-parent/docs/images/inventory.jpeg)
 - Order Swagger  
-  ![Order Swagger](docs/images/order.jpeg)
+  ![Order Swagger](microservices-parent/docs/images/order.jpeg)
 - Product Swagger  
-  ![Product Swagger](docs/images/product.jpeg)
+  ![Product Swagger](microservices-parent/docs/images/product.jpeg)
 
 ## Quick start (Docker Compose - recommended)
 1) From repo root: `docker-compose -p comp3095-integrated -f docker-compose.yml up -d --build`
